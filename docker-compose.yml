@@ -1,29 +1,48 @@
+version: '3'
 services:
-
-  wordpress:
-    image: wordpress
+  server:
+    build: 
+          context: ./environment/apache/
+          dockerfile: wordpress-dockerfile
+          args:
+              uid: 1000
+    container_name: apache-server-wordpress
+    environment:
+          - APACHE_RUN_USER=#1000
+          - APACHE_RUN_GROUP=#1000
     restart: always
     ports:
-      - 8080:80
-    environment:
-      WORDPRESS_DB_HOST: db
-      WORDPRESS_DB_USER: exampleuser
-      WORDPRESS_DB_PASSWORD: examplepass
-      WORDPRESS_DB_NAME: exampledb
+    - '8080:80'
     volumes:
-      - wordpress:/var/www/html
-
-  db:
+    -   ./:/var/www/html/
+    -   ./environment/apache/000-default.conf/:/etc/apache2/sites-available/000-default.conf
+  database:
     image: mysql:8.0
-    restart: always
+    container_name: mysql-wordpress
     environment:
-      MYSQL_DATABASE: exampledb
-      MYSQL_USER: exampleuser
-      MYSQL_PASSWORD: examplepass
-      MYSQL_RANDOM_ROOT_PASSWORD: '1'
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_USER: admin
+      MYSQL_PASSWORD: root
+    ports:
+      - "3306:3306"
     volumes:
-      - db:/var/lib/mysql
-
+      - dbdata:/var/lib/mysql
+      - ./environment/mysql/:/tmp/database
+    command: mysqld --init-file="/tmp/database/install_db.sql"
+    restart: unless-stopped
+  database-management:
+    image: phpmyadmin/phpmyadmin
+    container_name: phpmyadmin-wordpress
+    depends_on:
+      - database
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      PMA_USER: root
+      PMA_HOST: database
+      PMA_PORT: 3306
+      PMA_PASSWORD: root
+    restart: unless-stopped
+    ports:
+      - 8082:80
 volumes:
-  wordpress:
-  db:
+  dbdata:
